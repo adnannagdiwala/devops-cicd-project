@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager — DevOps Demo App</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: #888;
+            font-size: 0.95rem;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .status-badge {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.api { background: rgba(102, 126, 234, 0.2); color: #667eea; border: 1px solid rgba(102, 126, 234, 0.3); }
+        .status-badge.db { background: rgba(118, 75, 162, 0.2); color: #a78bfa; border: 1px solid rgba(118, 75, 162, 0.3); }
+        .status-badge.k8s { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+
+        /* ── Add Task Form ── */
+        .add-task-form {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .form-row:last-child { margin-bottom: 0; }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea { resize: vertical; min-height: 60px; }
+
+        button {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            white-space: nowrap;
+        }
+
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
+
+        /* ── Task Cards ── */
+        .tasks-list { display: flex; flex-direction: column; gap: 12px; }
+
+        .task-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.2s;
+        }
+
+        .task-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .task-info { flex: 1; }
+        .task-info h3 { font-size: 1.05rem; margin-bottom: 4px; color: #f0f0f0; }
+        .task-info p { font-size: 0.85rem; color: #888; }
+        .task-info .timestamp { font-size: 0.75rem; color: #555; margin-top: 6px; }
+
+        .task-status {
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .task-status.pending { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+        .task-status.in_progress { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .task-status.completed { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+
+        .btn-delete {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 8px 14px;
+            font-size: 0.8rem;
+        }
+
+        .btn-delete:hover { background: rgba(239, 68, 68, 0.2); }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #555;
+        }
+
+        .empty-state span { font-size: 3rem; display: block; margin-bottom: 12px; }
+
+        .loading { text-align: center; padding: 40px; color: #667eea; }
+
+        @media (max-width: 600px) {
+            header h1 { font-size: 1.8rem; }
+            .form-row { flex-direction: column; }
+            .task-card { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 Task Manager</h1>
+            <p>DevOps CI/CD Demo Application</p>
+        </header>
+
+        <div class="status-bar">
+            <span id="api-status" class="status-badge api">API: checking...</span>
+            <span id="db-status" class="status-badge db">DB: checking...</span>
+            <span id="k8s-status" class="status-badge k8s">ENV: loading...</span>
+        </div>
+
+        <div class="add-task-form">
+            <div class="form-row">
+                <input type="text" id="task-title" placeholder="Task title..." />
+                <select id="task-status-select">
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <textarea id="task-description" placeholder="Description (optional)..." rows="2"></textarea>
+                <button class="btn-primary" onclick="createTask()">+ Add Task</button>
+            </div>
+        </div>
+
+        <div id="tasks-container" class="tasks-list">
+            <div class="loading">Loading tasks...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.API_URL || '/api';
+
+        // ─── Check Health ───────────────────────────────
+        async function checkHealth() {
+            try {
+                const res = await fetch(`${API_URL.replace('/api', '')}/health`);
+                const data = await res.json();
+                document.getElementById('api-status').textContent = `API: ${data.status}`;
+                document.getElementById('db-status').textContent = `DB: ${data.database}`;
+                document.getElementById('k8s-status').textContent = `ENV: ${window.location.hostname}`;
+            } catch (e) {
+                document.getElementById('api-status').textContent = 'API: offline';
+                document.getElementById('db-status').textContent = 'DB: unknown';
+            }
+        }
+
+        // ─── Load Tasks ─────────────────────────────────
+        async function loadTasks() {
+            try {
+                const res = await fetch(`${API_URL}/tasks`);
+                const tasks = await res.json();
+                const container = document.getElementById('tasks-container');
+
+                if (tasks.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <span>📭</span>
+                            <p>No tasks yet. Add one above!</p>
+                        </div>`;
+                    return;
+                }
+
+                container.innerHTML = tasks.map(task => `
+                    <div class="task-card">
+                        <div class="task-info">
+                            <h3>${escapeHtml(task.title)}</h3>
+                            <p>${escapeHtml(task.description || 'No description')}</p>
+                            <div class="timestamp">Created: ${new Date(task.created_at).toLocaleString()}</div>
+                        </div>
+                        <span class="task-status ${task.status}">${task.status.replace('_', ' ')}</span>
+                        <button class="btn-delete" onclick="deleteTask(${task.id})">Delete</button>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('tasks-container').innerHTML = `
+                    <div class="empty-state">
+                        <span>⚠️</span>
+                        <p>Cannot connect to API. Is the backend running?</p>
+                    </div>`;
+            }
+        }
+
+        // ─── Create Task ────────────────────────────────
+        async function createTask() {
+            const title = document.getElementById('task-title').value.trim();
+            const description = document.getElementById('task-description').value.trim();
+            const status = document.getElementById('task-status-select').value;
+
+            if (!title) { alert('Please enter a task title'); return; }
+
+            await fetch(`${API_URL}/tasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, description, status })
+            });
+
+            document.getElementById('task-title').value = '';
+            document.getElementById('task-description').value = '';
+            loadTasks();
+        }
+
+        // ─── Delete Task ────────────────────────────────
+        async function deleteTask(id) {
+            await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
+            loadTasks();
+        }
+
+        // ─── Helpers ────────────────────────────────────
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ─── Init ───────────────────────────────────────
+        checkHealth();
+        loadTasks();
+        setInterval(checkHealth, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.env
+
+# ── Docker ──
+docker-compose.override.yml
+
+# ── Ansible ──
+*.retry
+
+# ── IDE ──
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── AWS ──
+*.pem
+devops-vpc-ids.sh
+
+# ── Secrets (NEVER commit these) ──
+**/secret.yaml
+!**/secret.yaml.template

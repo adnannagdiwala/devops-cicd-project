@@ -1,0 +1,153 @@
+// ================================================================
+// Jenkinsfile — Declarative CI/CD Pipeline
+// Triggered on push to GitHub via webhook
+// ================================================================
+
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_CREDS = credentials('dockerhub-credentials')   // Jenkins credentials ID
+        APP_SERVER_IP   = credentials('app-server-ip')            // App server IP stored as secret text
+        FRONTEND_IMAGE  = "${DOCKERHUB_CREDS_USR}/taskmanager-frontend"
+        BACKEND_IMAGE   = "${DOCKERHUB_CREDS_USR}/taskmanager-backend"
+        BUILD_TAG       = "${BUILD_NUMBER}"
+    }
+
+    stages {
+
+        // ── Stage 1: Checkout Code ──
+        stage('Checkout') {
+            steps {
+                echo '📥 Checking out source code...'
+                checkout scm
+            }
+        }
+
+        // ── Stage 2: Run Unit Tests ──
+        stage('Unit Tests') {
+            steps {
+                echo '🧪 Running unit tests...'
+                dir('app/backend') {
+                    sh '''
+                        python3 -m venv venv
+                        . venv/bin/activate
+                        pip install -r requirements.txt
+                        python -m pytest tests/ -v --tb=short
+                    '''
+                }
+            }
+        }
+
+        // ── Stage 3: Build Docker Images (Parallel) ──
+        stage('Docker Build') {
+            parallel {
+                stage('Build Frontend') {
+                    steps {
+                        echo '🐳 Building frontend image...'
+                        dir('app/frontend') {
+                            sh "docker build -t ${FRONTEND_IMAGE}:${BUILD_TAG} -t ${FRONTEND_IMAGE}:latest ."
+                        }
+                    }
+                }
+                stage('Build Backend') {
+                    steps {
+                        echo '🐳 Building backend image...'
+                        dir('app/backend') {
+                            sh "docker build -t ${BACKEND_IMAGE}:${BUILD_TAG} -t ${BACKEND_IMAGE}:latest ."
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Stage 4: Push to Docker Hub ──
+        stage('Push to Docker Hub') {
+            steps {
+                echo '📤 Pushing images to Docker Hub...'
+                sh '''
+                    echo $DOCKERHUB_CREDS_PSW | docker login -u $DOCKERHUB_CREDS_USR --password-stdin
+
+                    docker push ${FRONTEND_IMAGE}:${BUILD_TAG}
+                    docker push ${FRONTEND_IMAGE}:latest
+                    docker push ${BACKEND_IMAGE}:${BUILD_TAG}
+                    docker push ${BACKEND_IMAGE}:latest
+
+                    docker logout
+                '''
+            }
+        }
+
+        // ── Stage 5: Deploy to Minikube (via SSH) ──
+        stage('Deploy to Minikube') {
+            steps {
+                echo '🚀 Deploying to Minikube on app server...'
+                sshagent(['app-server-ssh-key']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@${APP_SERVER_IP} '
+                            # Update image tags in deployments
+                            kubectl set image deployment/frontend \
+                                frontend=${FRONTEND_IMAGE}:${BUILD_TAG} \
+                                -n app
+
+                            kubectl set image deployment/backend \
+                                backend=${BACKEND_IMAGE}:${BUILD_TAG} \
+                                -n app
+
+                            # Wait for rollout to complete
+                            kubectl rollout status deployment/frontend -n app --timeout=120s
+                            kubectl rollout status deployment/backend -n app --timeout=120s
+                        '
+                    """
+                }
+            }
+        }
+
+        // ── Stage 6: Health Check ──
+        stage('Health Check') {
+            steps {
+                echo '🏥 Running health checks...'
+                sshagent(['app-server-ssh-key']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@${APP_SERVER_IP} '
+                            echo "── Pod Status ──"
+                            kubectl get pods -n app
+
+                            echo ""
+                            echo "── Service URLs ──"
+                            kubectl get svc -n app
+
+                            echo ""
+                            echo "── Deployment Status ──"
+                            kubectl get deployments -n app
+                        '
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '''
+            ════════════════════════════════════════
+            ✅ PIPELINE SUCCEEDED!
+            Build #${BUILD_NUMBER} deployed successfully.
+            ════════════════════════════════════════
+            '''
+        }
+        failure {
+            echo '''
+            ════════════════════════════════════════
+            ❌ PIPELINE FAILED!
+            Build #${BUILD_NUMBER} had errors.
+            Check the logs above for details.
+            ════════════════════════════════════════
+            '''
+        }
+        always {
+            // Clean up Docker images on Jenkins server
+            sh 'docker image prune -f || true'
+        }
+    }
+}

@@ -1,0 +1,17 @@
+---
+# Backend Service — ClusterIP (internal, accessed via frontend proxy)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: app
+  labels:
+    app: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+      protocol: TCP

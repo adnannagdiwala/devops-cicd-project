@@ -1,0 +1,69 @@
+---
+# ================================================================
+# Monitoring Setup — Prometheus + Grafana in Minikube
+# ================================================================
+
+- name: Setup monitoring stack
+  hosts: app
+  become: true
+  become_user: ubuntu
+
+  tasks:
+    - name: Copy monitoring manifests
+      copy:
+        src: "../../kubernetes/monitoring/"
+        dest: "/home/ubuntu/kubernetes/monitoring/"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+      become: true
+      become_user: root
+
+    - name: Apply Prometheus config
+      command: kubectl apply -f /home/ubuntu/kubernetes/monitoring/prometheus-config.yaml
+      changed_when: false
+
+    - name: Apply Prometheus deployment
+      command: kubectl apply -f /home/ubuntu/kubernetes/monitoring/prometheus-deployment.yaml
+      changed_when: false
+
+    - name: Apply Grafana deployment
+      command: kubectl apply -f /home/ubuntu/kubernetes/monitoring/grafana-deployment.yaml
+      changed_when: false
+
+    - name: Apply Grafana service
+      command: kubectl apply -f /home/ubuntu/kubernetes/monitoring/grafana-service.yaml
+      changed_when: false
+
+    - name: Wait for Prometheus to be ready
+      command: kubectl rollout status deployment/prometheus -n monitoring --timeout=120s
+      changed_when: false
+
+    - name: Wait for Grafana to be ready
+      command: kubectl rollout status deployment/grafana -n monitoring --timeout=120s
+      changed_when: false
+
+    - name: Get monitoring pods
+      command: kubectl get pods -n monitoring
+      register: mon_pods
+      changed_when: false
+
+    - name: Get monitoring services
+      command: kubectl get svc -n monitoring
+      register: mon_svc
+      changed_when: false
+
+    - name: Display monitoring status
+      debug:
+        msg: |
+          ═══════════════════════════════════════
+          Monitoring Stack Deployed!
+
+          PODS:
+          {{ mon_pods.stdout }}
+
+          SERVICES:
+          {{ mon_svc.stdout }}
+
+          Grafana default login: admin / admin
+          ═══════════════════════════════════════

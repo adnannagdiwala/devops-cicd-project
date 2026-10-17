@@ -1,0 +1,23 @@
+---
+# ================================================================
+# Master Playbook — Runs EVERYTHING in order
+# Usage: ansible-playbook playbooks/site.yml
+# ================================================================
+
+- name: Setup common packages on all servers
+  import_playbook: setup-common.yml
+
+- name: Install Docker on all servers
+  import_playbook: setup-docker.yml
+
+- name: Setup Jenkins server
+  import_playbook: setup-jenkins.yml
+
+- name: Setup Minikube on app server
+  import_playbook: setup-minikube.yml
+
+- name: Deploy application to Minikube
+  import_playbook: deploy-app.yml
+
+- name: Setup monitoring (Prometheus + Grafana)
+  import_playbook: setup-monitoring.yml

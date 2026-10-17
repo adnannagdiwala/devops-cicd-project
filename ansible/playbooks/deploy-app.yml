@@ -1,0 +1,71 @@
+---
+# ================================================================
+# Deploy Application to Minikube
+# ================================================================
+
+- name: Deploy application to Minikube
+  hosts: app
+  become: true
+  become_user: ubuntu
+
+  tasks:
+    - name: Copy Kubernetes manifests to app server
+      copy:
+        src: "../../kubernetes/"
+        dest: "/home/ubuntu/kubernetes/"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+      become: true
+      become_user: root
+
+    - name: Apply database secret
+      command: kubectl apply -f /home/ubuntu/kubernetes/database/secret.yaml
+      changed_when: false
+
+    - name: Apply database deployment
+      command: kubectl apply -f /home/ubuntu/kubernetes/database/
+      changed_when: false
+
+    - name: Wait for database to be ready
+      command: kubectl rollout status deployment/mysql -n app --timeout=120s
+      changed_when: false
+
+    - name: Apply backend deployment
+      command: kubectl apply -f /home/ubuntu/kubernetes/backend/
+      changed_when: false
+
+    - name: Wait for backend to be ready
+      command: kubectl rollout status deployment/backend -n app --timeout=120s
+      changed_when: false
+
+    - name: Apply frontend deployment
+      command: kubectl apply -f /home/ubuntu/kubernetes/frontend/
+      changed_when: false
+
+    - name: Wait for frontend to be ready
+      command: kubectl rollout status deployment/frontend -n app --timeout=120s
+      changed_when: false
+
+    - name: Get all pods
+      command: kubectl get pods -n app -o wide
+      register: pods_output
+      changed_when: false
+
+    - name: Get all services
+      command: kubectl get svc -n app
+      register: svc_output
+      changed_when: false
+
+    - name: Display deployment status
+      debug:
+        msg: |
+          ═══════════════════════════════════════
+          Application Deployed Successfully!
+
+          PODS:
+          {{ pods_output.stdout }}
+
+          SERVICES:
+          {{ svc_output.stdout }}
+          ═══════════════════════════════════════

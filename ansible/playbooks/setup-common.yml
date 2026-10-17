@@ -1,0 +1,48 @@
+---
+# ================================================================
+# Common Setup — Runs on ALL servers
+# ================================================================
+
+- name: Setup common packages on all servers
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install common packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - wget
+          - gnupg
+          - lsb-release
+          - software-properties-common
+          - git
+          - htop
+          - unzip
+          - jq
+          - net-tools
+          - python3-pip
+        state: present
+
+    - name: Set timezone
+      timezone:
+        name: Asia/Kolkata
+
+    - name: Create deploy user
+      user:
+        name: deploy
+        shell: /bin/bash
+        groups: sudo
+        append: yes
+
+    - name: Ensure UFW is disabled (we use Security Groups)
+      ufw:
+        state: disabled
+      ignore_errors: yes

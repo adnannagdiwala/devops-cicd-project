@@ -1,0 +1,18 @@
+---
+# Frontend Service — NodePort (accessible from outside Minikube)
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: app
+  labels:
+    app: frontend
+spec:
+  type: NodePort
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+      protocol: TCP
