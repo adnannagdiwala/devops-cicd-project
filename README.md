@@ -2,7 +2,7 @@
 
 A complete CI/CD pipeline project that automates the build, test, and deployment of a containerized microservice application to Kubernetes (Minikube) on AWS.
 
-## 📐 Architecture
+## 📐 Architecture and structure
 
 ```
 GitHub → Jenkins (EC2) → Docker Build → Docker Hub → Minikube (EC2)
